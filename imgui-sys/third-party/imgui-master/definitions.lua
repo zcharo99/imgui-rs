@@ -4030,12 +4030,12 @@ local t={
         [3]={
           name="user_data",
           type="void*"}},
-      argsoriginal="(void*(*alloc_func)(size_t sz,void* user_data),void(*free_func)(void* ptr,void* user_data),void* user_data=((void*)0))",
+      argsoriginal="(void*(*alloc_func)(size_t sz,void* user_data),void(*free_func)(void* ptr,void* user_data),void* user_data=nullptr)",
       call_args="(alloc_func,free_func,user_data)",
       call_args_old="(alloc_func,free_func,user_data)",
       cimguiname="ImGuiFreeType_SetAllocatorFunctions",
       defaults={
-        user_data="NULL"},
+        user_data="nullptr"},
       funcname="SetAllocatorFunctions",
       location="imgui_freetype:43",
       namespace="ImGuiFreeType",

@@ -5893,7 +5893,9 @@ ImVec2 ImGui::GetItemRectSize()
 bool ImGui::BeginChild(const char* str_id, const ImVec2& size_arg, ImGuiChildFlags child_flags, ImGuiWindowFlags window_flags)
 {
     ImGuiID id = GetCurrentWindow()->GetID(str_id);
-    return BeginChildEx(str_id, id, size_arg, child_flags, window_flags);
+    bool ret = BeginChildEx(str_id, id, size_arg, child_flags, window_flags);
+
+    return ret;
 }
 
 bool ImGui::BeginChild(ImGuiID id, const ImVec2& size_arg, ImGuiChildFlags child_flags, ImGuiWindowFlags window_flags)
@@ -6006,6 +6008,28 @@ bool ImGui::BeginChildEx(const char* name, ImGuiID id, const ImVec2& size_arg, I
 
     ImGuiWindow* child_window = g.CurrentWindow;
     child_window->ChildId = id;
+
+    if (child_flags & ImGuiChildFlags_Borders)
+    {
+        ImDrawList* draw = child_window->DrawList;
+
+        const float inset = 1.0f;
+
+        ImRect r = child_window->InnerRect;
+        r.Min += ImVec2(inset, inset);
+        r.Max -= ImVec2(inset, inset);
+
+        ImU32 col = IM_COL32(33, 33, 33, 255);
+
+        draw->AddRect(
+            r.Min,
+            r.Max,
+            col,
+            child_window->WindowRounding,
+            0,
+            1.0f
+        );
+    }
 
     // Set the cursor to handle case where the user called SetNextWindowPos()+BeginChild() manually.
     // While this is not really documented/defined, it seems that the expected thing to do.
@@ -6626,8 +6650,10 @@ static void ImGui::RenderWindowOuterBorders(ImGuiWindow* window)
     ImGuiContext& g = *GImGui;
     const float border_size = window->WindowBorderSize;
     const ImU32 border_col = GetColorU32(ImGuiCol_Border);
-    if (border_size > 0.0f && (window->Flags & ImGuiWindowFlags_NoBackground) == 0)
+    if (border_size > 0.0f && (window->Flags & ImGuiWindowFlags_NoBackground) == 0) {
         window->DrawList->AddRect(window->Pos, window->Pos + window->Size, border_col, window->WindowRounding, 0, window->WindowBorderSize);
+        window->DrawList->AddRect(window->Pos + ImVec2(1, 1), window->Pos + window->Size - ImVec2(1, 1), IM_COL32(33, 33, 33, 255), window->WindowRounding);
+    }
     else if (border_size > 0.0f)
     {
         if (window->ChildFlags & ImGuiChildFlags_ResizeX) // Similar code as 'resize_border_mask' computation in UpdateWindowManualResize() but we specifically only always draw explicit child resize border.
@@ -6678,17 +6704,56 @@ void ImGui::RenderWindowDecorations(ImGuiWindow* window, const ImRect& title_bar
         // Window background
         if (!(flags & ImGuiWindowFlags_NoBackground))
         {
-            ImU32 bg_col = GetColorU32(GetWindowBgColorIdx(window));
-            bool override_alpha = false;
-            float alpha = 1.0f;
+            ImDrawList* dl = window->DrawList;
+
+            ImVec2 bg_min = window->Pos + ImVec2(0, window->TitleBarHeight);
+            ImVec2 bg_max = window->Pos + window->Size;
+
+            ImU32 col_top;
+            ImU32 col_bottom;
+
+            // cool trick
+            if (window->ChildFlags & ImGuiChildFlags_NavFlattened || window->Flags & ImGuiWindowFlags_Popup)
+            {
+                col_top = IM_COL32(23, 23, 23, 255);
+                col_bottom = IM_COL32(27, 27, 27, 255);
+            }
+            else
+            {
+                // default gradient
+                col_top = IM_COL32(23, 23, 23, 255);
+                col_bottom = IM_COL32(33, 33, 33, 255);
+            }
+
+            // respect NextWindowBgAlpha
             if (g.NextWindowData.Flags & ImGuiNextWindowDataFlags_HasBgAlpha)
             {
-                alpha = g.NextWindowData.BgAlphaVal;
-                override_alpha = true;
+                float a = g.NextWindowData.BgAlphaVal;
+                col_top = (col_top & ~IM_COL32_A_MASK) | (IM_F32_TO_INT8_SAT(a) << IM_COL32_A_SHIFT);
+                col_bottom = (col_bottom & ~IM_COL32_A_MASK) | (IM_F32_TO_INT8_SAT(a) << IM_COL32_A_SHIFT);
             }
-            if (override_alpha)
-                bg_col = (bg_col & ~IM_COL32_A_MASK) | (IM_F32_TO_INT8_SAT(alpha) << IM_COL32_A_SHIFT);
-            window->DrawList->AddRectFilled(window->Pos + ImVec2(0, window->TitleBarHeight), window->Pos + window->Size, bg_col, window_rounding, (flags & ImGuiWindowFlags_NoTitleBar) ? 0 : ImDrawFlags_RoundCornersBottom);
+
+            dl->AddRectFilledMultiColor(
+                bg_min,
+                bg_max,
+                col_bottom,     // top-left
+                col_bottom,     // top-right
+                col_top,  // bottom-right
+                col_top   // bottom-left
+            );
+
+            // rounding only on bottom if title bar exists
+            if (window_rounding > 0.0f)
+            {
+                dl->AddRect(
+                    bg_min,
+                    bg_max,
+                    IM_COL32(0, 0, 0, 0),
+                    window_rounding,
+                    (flags & ImGuiWindowFlags_NoTitleBar) ? ImDrawFlags_RoundCornersAll
+                    : ImDrawFlags_RoundCornersBottom
+                );
+            }
         }
 
         // Title bar

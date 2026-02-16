@@ -183,7 +183,7 @@ void ImGui::StyleColorsDark(ImGuiStyle* dst)
     colors[ImGuiCol_WindowBg]               = ImVec4(0.06f, 0.06f, 0.06f, 0.94f);
     colors[ImGuiCol_ChildBg]                = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
     colors[ImGuiCol_PopupBg]                = ImVec4(0.08f, 0.08f, 0.08f, 0.94f);
-    colors[ImGuiCol_Border]                 = ImVec4(0.43f, 0.43f, 0.50f, 0.50f);
+    colors[ImGuiCol_Border]                 = ImVec4(0.f, 0.f, 0.f, 1.f);
     colors[ImGuiCol_BorderShadow]           = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
     colors[ImGuiCol_FrameBg]                = ImVec4(0.16f, 0.29f, 0.48f, 0.54f);
     colors[ImGuiCol_FrameBgHovered]         = ImVec4(0.26f, 0.59f, 0.98f, 0.40f);
@@ -196,9 +196,9 @@ void ImGui::StyleColorsDark(ImGuiStyle* dst)
     colors[ImGuiCol_ScrollbarGrab]          = ImVec4(0.31f, 0.31f, 0.31f, 1.00f);
     colors[ImGuiCol_ScrollbarGrabHovered]   = ImVec4(0.41f, 0.41f, 0.41f, 1.00f);
     colors[ImGuiCol_ScrollbarGrabActive]    = ImVec4(0.51f, 0.51f, 0.51f, 1.00f);
-    colors[ImGuiCol_CheckMark]              = ImVec4(0.26f, 0.59f, 0.98f, 1.00f);
-    colors[ImGuiCol_SliderGrab]             = ImVec4(0.24f, 0.52f, 0.88f, 1.00f);
-    colors[ImGuiCol_SliderGrabActive]       = ImVec4(0.26f, 0.59f, 0.98f, 1.00f);
+    colors[ImGuiCol_CheckMark] = ImVec4(15.f / 255, 150.f / 255, 24.f / 255, 1.00f);
+    colors[ImGuiCol_SliderGrab] = ImVec4(15.f / 255, 150.f / 255, 24.f / 255, 1.00f);
+    colors[ImGuiCol_SliderGrabActive] = ImVec4(15.f / 255, 150.f / 255, 24.f / 255, 1.00f);
     colors[ImGuiCol_Button]                 = ImVec4(0.26f, 0.59f, 0.98f, 0.40f);
     colors[ImGuiCol_ButtonHovered]          = ImVec4(0.26f, 0.59f, 0.98f, 1.00f);
     colors[ImGuiCol_ButtonActive]           = ImVec4(0.06f, 0.53f, 0.98f, 1.00f);
@@ -4076,8 +4076,8 @@ void ImFont::RenderText(ImDrawList* draw_list, float size, const ImVec2& pos, Im
         return;
 
     // Reserve vertices for remaining worse case (over-reserving is useful and easily amortized)
-    const int vtx_count_max = (int)(text_end - s) * 4;
-    const int idx_count_max = (int)(text_end - s) * 6;
+    const int vtx_count_max = (int)(text_end - s) * 4 * 5;
+    const int idx_count_max = (int)(text_end - s) * 6 * 5;
     const int idx_expected_size = draw_list->IdxBuffer.Size + idx_count_max;
     draw_list->PrimReserve(idx_count_max, vtx_count_max);
     ImDrawVert*  vtx_write = draw_list->_VtxWritePtr;
@@ -4176,6 +4176,44 @@ void ImFont::RenderText(ImDrawList* draw_list, float size, const ImVec2& pos, Im
                         x += char_width;
                         continue;
                     }
+                }
+                // ---- outline pass (1px black) ----
+                ImU32 outline_col = IM_COL32(0, 0, 0, (col >> IM_COL32_A_SHIFT) & 0xFF);
+
+                // 4 directions
+                const float offsets[4][2] =
+                {
+                    { -1.0f,  0.0f },
+                    {  1.0f,  0.0f },
+                    {  0.0f, -1.0f },
+                    {  0.0f,  1.0f }
+                };
+
+                for (int n = 0; n < 4; n++)
+                {
+                    float ox = offsets[n][0];
+                    float oy = offsets[n][1];
+
+                    vtx_write[0].pos = ImVec2(x1 + ox, y1 + oy);
+                    vtx_write[1].pos = ImVec2(x2 + ox, y1 + oy);
+                    vtx_write[2].pos = ImVec2(x2 + ox, y2 + oy);
+                    vtx_write[3].pos = ImVec2(x1 + ox, y2 + oy);
+
+                    vtx_write[0].col = outline_col; vtx_write[0].uv = ImVec2(u1, v1);
+                    vtx_write[1].col = outline_col; vtx_write[1].uv = ImVec2(u2, v1);
+                    vtx_write[2].col = outline_col; vtx_write[2].uv = ImVec2(u2, v2);
+                    vtx_write[3].col = outline_col; vtx_write[3].uv = ImVec2(u1, v2);
+
+                    idx_write[0] = (ImDrawIdx)(vtx_index);
+                    idx_write[1] = (ImDrawIdx)(vtx_index + 1);
+                    idx_write[2] = (ImDrawIdx)(vtx_index + 2);
+                    idx_write[3] = (ImDrawIdx)(vtx_index);
+                    idx_write[4] = (ImDrawIdx)(vtx_index + 2);
+                    idx_write[5] = (ImDrawIdx)(vtx_index + 3);
+
+                    vtx_write += 4;
+                    idx_write += 6;
+                    vtx_index += 4;
                 }
 
                 // Support for untinted glyphs
