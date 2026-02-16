@@ -191,8 +191,7 @@ impl Ui {
     /// Returns the mouse position backed up at the time of opening a popup
     #[doc(alias = "GetMousePosOnOpeningCurrentPopup")]
     pub fn mouse_pos_on_opening_current_popup(&self) -> [f32; 2] {
-        let mut out = sys::ImVec2::zero();
-        unsafe { sys::igGetMousePosOnOpeningCurrentPopup(&mut out) };
+        let out = unsafe { sys::igGetMousePosOnOpeningCurrentPopup() };
         out.into()
     }
 
@@ -226,8 +225,7 @@ impl Ui {
     /// (`io.mouse_drag_threshold`).
     #[doc(alias = "GetMouseDragDelta")]
     pub fn mouse_drag_delta_with_threshold(&self, button: MouseButton, threshold: f32) -> [f32; 2] {
-        let mut out = sys::ImVec2::zero();
-        unsafe { sys::igGetMouseDragDelta(&mut out, button as i32, threshold) };
+        let out = unsafe { sys::igGetMouseDragDelta(button as i32, threshold) };
         out.into()
     }
     /// Resets the current delta from initial clicking position.

@@ -919,8 +919,7 @@ impl<'ui> Ui {
             let start = text.as_ptr();
             let end = start.add(text.len());
 
-            sys::igCalcTextSize(
-                &mut out,
+            out = sys::igCalcTextSize(
                 start as *const c_char,
                 end as *const c_char,
                 hide_text_after_double_hash,
